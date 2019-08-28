@@ -1,0 +1,24 @@
+{
+  "name": "laundrobot",
+  "version": "1.0.0",
+  "description": "Telegram Bot for IOT enabled washing machines",
+  "main": "index.js",
+  "dependencies": {
+    "request": "^2.88.0",
+    "request-promise-native": "^1.0.7"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/EYLeong/LaundroBot.git"
+  },
+  "author": "LaundroMania",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/EYLeong/LaundroBot/issues"
+  },
+  "homepage": "https://github.com/EYLeong/LaundroBot#readme"
+}
