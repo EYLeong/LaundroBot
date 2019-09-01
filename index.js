@@ -1,6 +1,6 @@
 const request = require("request-promise-native");
 
-const token = "926495483:AAGZB9EchLV2lsuVvN4nEcLoFh98UGWz3Lk";
+const token = "";
 
 // https://api.telegram.org/bot<token>/METHOD_NAME http request syntax
 
