@@ -1,6 +1,6 @@
 const request = require("request-promise-native");
 
-const token = "";
+const token = "926495483:AAGZB9EchLV2lsuVvN4nEcLoFh98UGWz3Lk";
 
 // https://api.telegram.org/bot<token>/METHOD_NAME http request syntax
 
@@ -33,6 +33,10 @@ const getUpdates = async () => {
         console.log("ChatID:", message.message.chat.id);
         console.log("Text:", message.message.text);
         lastUpdateId = message.update_id;
+        sendMessage(
+          message.message.chat.id,
+          `You have sent the message ${message.message.text} to LaundroBot`
+        );
       }
     });
   } catch (response) {
