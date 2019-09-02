@@ -1,6 +1,7 @@
 const request = require("request-promise-native");
+const tokenFile = require("./token.json");
 
-const token = "";
+const token = tokenFile.token;
 
 // https://api.telegram.org/bot<token>/METHOD_NAME http request syntax
 
