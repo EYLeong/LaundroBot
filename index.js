@@ -50,15 +50,21 @@ const getUpdates = async () => {
   }
 };
 
-// Send text to specified chatID with optional keyboard
-const sendMessage = async (chatID, text, keyboard = undefined) => {
+// Send text to specified chatID with optional keyboard and parse_mode
+const sendMessage = async (
+  chatID,
+  text,
+  keyboard = undefined,
+  parse_mode = undefined
+) => {
   const options = {
     uri: `https://api.telegram.org/bot${token}/sendMessage`,
     method: "POST",
     json: {
       chat_id: chatID,
       text: text,
-      reply_markup: keyboard
+      reply_markup: keyboard,
+      parse_mode: parse_mode
     }
   };
 
@@ -76,15 +82,55 @@ const sendMessage = async (chatID, text, keyboard = undefined) => {
   }
 };
 
+const respondRoomStatus = async (chatID, roomName) => {
+  const status = await fire.getRoomStatus(roomName);
+  let outString = `*${roomName} machines*\n\n`;
+  status.forEach(machine => {
+    outString += `${machine.name}: ${machine.status}\n`;
+  });
+  const keyboard = {
+    keyboard: [["Refresh"]],
+    one_time_keyboard: true
+  };
+  sendMessage(chatID, outString, keyboard, "Markdown");
+};
+
+const respondStart = async chatID => {
+  fire.setNewUser(chatID);
+  const keyboard = {
+    keyboard: await fire.rooms2SqArr(),
+    one_time_keyboard: true
+  };
+  sendMessage(
+    chatID,
+    "Which laundry room would you like to monitor?",
+    keyboard
+  );
+};
+
+const respondRefresh = async chatID => {
+  const roomName = await fire.getUserRoom(chatID);
+  respondRoomStatus(chatID, roomName);
+};
+
 const respond = async (chatID, messageText) => {
   if (messageText === "/start") {
-    sendMessage(chatID, "Which laundry room would you like to monitor?", {
-      keyboard: await fire.rooms2SqArr(),
-      one_time_keyboard: true
-    });
+    respondStart(chatID);
+  } else if (messageText === "Refresh") {
+    respondRefresh(chatID);
   } else {
-    sendMessage(chatID, `Unknown command ${messageText} received by bot`);
+    const roomNames = await fire.getRoomNames();
+    if (roomNames.includes(messageText)) {
+      fire.setUserRoom(chatID, messageText);
+      respondRoomStatus(chatID, messageText);
+    } else {
+      sendMessage(chatID, `Unknown command ${messageText} received by bot`);
+    }
   }
+};
+
+const test = async () => {
+  fire.setNewUser("test");
 };
 
 const run = async () => {

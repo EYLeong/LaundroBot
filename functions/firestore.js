@@ -28,7 +28,7 @@ module.exports.getDoc = async (collectionName, docName) => {
 
 // Get collection from firestore
 module.exports.getCollection = async collectionName => {
-  let roomRef = await db.collection(collectionName);
+  let roomRef = db.collection(collectionName);
   try {
     let collection = await roomRef.get();
     if (collection.empty) {
@@ -43,6 +43,7 @@ module.exports.getCollection = async collectionName => {
   }
 };
 
+// Listen to a doc for updates
 module.exports.listenDoc = (collectionName, docName) => {
   let docRef = db.collection(collectionName).doc(docName);
 
@@ -56,6 +57,7 @@ module.exports.listenDoc = (collectionName, docName) => {
   );
 };
 
+// Listen to a collection for updates
 module.exports.listenCollection = collectionName => {
   let collectionRef = db.collection(collectionName);
 
@@ -71,12 +73,75 @@ module.exports.listenCollection = collectionName => {
   );
 };
 
+// returns a square array of all the rooms
 module.exports.rooms2SqArr = async () => {
   try {
-    const collectionRefs = await db.listCollections();
-    const collectionIds = collectionRefs.map(collectionRef => collectionRef.id);
+    return arr2SqArr(await this.getRoomNames());
+  } catch (error) {
+    console.error(error);
+  }
+};
 
-    return arr2SqArr(collectionIds);
+// returns a square array of all the machines in a room
+module.exports.machines2SqArr = async roomName => {
+  const roomRef = db
+    .collection("rooms")
+    .doc("rooms")
+    .collection(roomName);
+  try {
+    const collectionRef = await roomRef.get();
+    let machineNames = [];
+    collectionRef.forEach(docRef => machineNames.push(docRef.id));
+    machineNames = arr2SqArr(machineNames);
+    return machineNames;
+  } catch (error) {
+    console.error(error);
+  }
+};
+
+module.exports.getRoomNames = async () => {
+  const docRef = db.collection("rooms").doc("rooms");
+  try {
+    const collectionRefs = await docRef.listCollections();
+    const collectionIds = collectionRefs.map(collectionRef => collectionRef.id);
+    return collectionIds;
+  } catch (error) {
+    console.error(error);
+  }
+};
+
+module.exports.getRoomStatus = async roomName => {
+  const roomRef = db
+    .collection("rooms")
+    .doc("rooms")
+    .collection(roomName);
+  try {
+    const collectionRef = await roomRef.get();
+    let machines = [];
+    collectionRef.forEach(docRef => machines.push(docRef.data()));
+    return machines;
+  } catch (error) {
+    console.error(error);
+  }
+};
+
+module.exports.setNewUser = chatID => {
+  db.collection("users")
+    .doc(String(chatID))
+    .set({ chatID: chatID });
+};
+
+module.exports.setUserRoom = (chatID, roomName) => {
+  const userRef = db.collection("users").doc(String(chatID));
+  userRef.update({ currentRoom: roomName });
+};
+
+module.exports.getUserRoom = async chatID => {
+  const userRef = db.collection("users").doc(String(chatID));
+  try {
+    const doc = await userRef.get();
+    const userData = doc.data();
+    return userData.currentRoom;
   } catch (error) {
     console.error(error);
   }
