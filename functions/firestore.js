@@ -77,10 +77,10 @@ module.exports.getRoomStatus = async roomName => {
 };
 
 // sets a new user in the database based on chat id
-module.exports.setNewUser = chatID => {
+module.exports.setNewUser = (chatID, currentRoom) => {
   db.collection("users")
     .doc(String(chatID))
-    .set({ chatID: chatID });
+    .set({ chatID: chatID, currentRoom: currentRoom });
 };
 
 module.exports.setUserProp = (chatID, property, value) => {
@@ -113,7 +113,7 @@ module.exports.getUsers = async () => {
   }
 };
 
-module.exports.listenRoomAvail = async (
+module.exports.listenRoom = async (
   roomName,
   sendMessage,
   respondRoomStatus
@@ -130,6 +130,13 @@ module.exports.listenRoomAvail = async (
       if (machine.status === "available" && firstCheck) {
         firstCheck = false;
         this.updateRoomAvail(
+          roomName,
+          machine.name,
+          sendMessage,
+          respondRoomStatus
+        );
+      } else if (machine.status === "awaiting collection") {
+        this.updateMachineDone(
           roomName,
           machine.name,
           sendMessage,
@@ -152,11 +159,45 @@ module.exports.updateRoomAvail = async (
       if (user.waitingAvail === roomName) {
         sendMessage(user.chatID, `${machineName} is available!`);
         respondRoomStatus(user.chatID, roomName);
+        this.setUserProp(user.chatID, "waitingAvail", "None");
       }
     });
   } catch (error) {
     console.error(error);
   }
+};
+
+module.exports.updateMachineDone = async (
+  roomName,
+  machineName,
+  sendMessage,
+  respondRoomStatus
+) => {
+  try {
+    const users = await this.getUsers();
+    users.forEach(user => {
+      if (user.currentRoom === roomName && user.waitingDone === machineName) {
+        sendMessage(user.chatID, "Your wash is done!");
+        respondRoomStatus(user.chatID, roomName);
+        this.setUserProp(user.chatID, "waitingDone", "None");
+      }
+    });
+  } catch (error) {
+    console.error(error);
+  }
+};
+
+module.exports.getRunningSq = async roomName => {
+  return arr2SqArr(await this.getRunning(roomName));
+};
+
+module.exports.getRunning = async roomName => {
+  const status = await this.getRoomStatus(roomName);
+  const output = [];
+  status.forEach(machine => {
+    machine.status === "running" && output.push(machine.name);
+  });
+  return output;
 };
 
 // convert an array into a square array.

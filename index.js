@@ -102,7 +102,6 @@ const respondRoomStatus = async (chatID, roomName) => {
 
 // Respond to /start
 const respondStart = async chatID => {
-  fire.setNewUser(chatID);
   const keyboard = {
     keyboard: await fire.rooms2SqArr(),
     one_time_keyboard: true
@@ -120,6 +119,7 @@ const respondRefresh = async chatID => {
   respondRoomStatus(chatID, roomName);
 };
 
+// Respond to notify me when a machine is available
 const respondNotifyAvailable = async chatID => {
   const roomName = await fire.getUserProp(chatID, "currentRoom");
   const status = await fire.getRoomStatus(roomName);
@@ -139,6 +139,26 @@ const respondNotifyAvailable = async chatID => {
   }
 };
 
+const respondWashDone = async chatID => {
+  const roomName = await fire.getUserProp(chatID, "currentRoom");
+  const runningMachines = await fire.getRunningSq(roomName);
+  if (!runningMachines.length) {
+    sendMessage(chatID, "There are no running machines!");
+    respondRoomStatus(chatID, roomName);
+  } else {
+    const keyboard = {
+      keyboard: runningMachines,
+      one_time_keyboard: true
+    };
+    sendMessage(chatID, "Which machine?", keyboard);
+  }
+};
+
+const respondWashDoneMachine = async (chatID, machine) => {
+  fire.setUserProp(chatID, "waitingDone", machine);
+  sendMessage(chatID, "We will notify you when your wash is done!");
+};
+
 // Overall response
 const respond = async (chatID, messageText) => {
   if (messageText === "/start") {
@@ -147,13 +167,22 @@ const respond = async (chatID, messageText) => {
     respondRefresh(chatID);
   } else if (messageText === "Notify me when a machine is available") {
     respondNotifyAvailable(chatID);
+  } else if (messageText === "Notify me when my wash is done") {
+    respondWashDone(chatID);
   } else {
     const roomNames = await fire.getRoomNames();
     if (roomNames.includes(messageText)) {
-      fire.setUserProp(chatID, "currentRoom", messageText);
+      fire.setNewUser(chatID, messageText);
       respondRoomStatus(chatID, messageText);
     } else {
-      sendMessage(chatID, `Unknown command ${messageText} received by bot`);
+      const runningMachines = await fire.getRunning(
+        await fire.getUserProp(chatID, "currentRoom")
+      );
+      if (runningMachines.includes(messageText)) {
+        respondWashDoneMachine(chatID, messageText);
+      } else {
+        sendMessage(chatID, `Unknown command ${messageText} received by bot`);
+      }
     }
   }
 };
@@ -163,8 +192,8 @@ const test = async () => {
 };
 
 const run = async () => {
-  fire.listenRoomAvail("fakeroom1", sendMessage, respondRoomStatus);
-  fire.listenRoomAvail("fakeroom2", sendMessage, respondRoomStatus);
+  fire.listenRoom("fakeroom1", sendMessage, respondRoomStatus);
+  fire.listenRoom("fakeroom2", sendMessage, respondRoomStatus);
   while (true) {
     await getUpdates();
   }
