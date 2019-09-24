@@ -9,40 +9,6 @@ admin.initializeApp({
 
 let db = admin.firestore();
 
-// Get doc from firestore
-module.exports.getDoc = async (collectionName, docName) => {
-  let machineRef = db.collection(collectionName).doc(docName);
-  try {
-    let doc = await machineRef.get();
-    if (!doc.exists) {
-      console.error(
-        `document ${docName} from collection ${collectionName} does not exist`
-      );
-    } else {
-      console.log(doc.data());
-    }
-  } catch (error) {
-    console.error(error);
-  }
-};
-
-// Get collection from firestore
-module.exports.getCollection = async collectionName => {
-  let roomRef = db.collection(collectionName);
-  try {
-    let collection = await roomRef.get();
-    if (collection.empty) {
-      console.error(`collection ${collectionName} does not exist or is empty`);
-    } else {
-      collection.forEach(doc => {
-        console.log(doc.id, ":", doc.data());
-      });
-    }
-  } catch (error) {
-    console.error(error);
-  }
-};
-
 // Listen to a doc for updates
 module.exports.listenDoc = (collectionName, docName) => {
   let docRef = db.collection(collectionName).doc(docName);
@@ -82,23 +48,7 @@ module.exports.rooms2SqArr = async () => {
   }
 };
 
-// returns a square array of all the machines in a room
-module.exports.machines2SqArr = async roomName => {
-  const roomRef = db
-    .collection("rooms")
-    .doc("rooms")
-    .collection(roomName);
-  try {
-    const collectionRef = await roomRef.get();
-    let machineNames = [];
-    collectionRef.forEach(docRef => machineNames.push(docRef.id));
-    machineNames = arr2SqArr(machineNames);
-    return machineNames;
-  } catch (error) {
-    console.error(error);
-  }
-};
-
+// returns an array of the room names
 module.exports.getRoomNames = async () => {
   const docRef = db.collection("rooms").doc("rooms");
   try {
@@ -110,6 +60,7 @@ module.exports.getRoomNames = async () => {
   }
 };
 
+// returns an array of the status of the machines in a room. each status is an object
 module.exports.getRoomStatus = async roomName => {
   const roomRef = db
     .collection("rooms")
@@ -125,28 +76,90 @@ module.exports.getRoomStatus = async roomName => {
   }
 };
 
+// sets a new user in the database based on chat id
 module.exports.setNewUser = chatID => {
   db.collection("users")
     .doc(String(chatID))
     .set({ chatID: chatID });
 };
 
-module.exports.setUserRoom = (chatID, roomName) => {
+module.exports.setUserProp = (chatID, property, value) => {
   const userRef = db.collection("users").doc(String(chatID));
-  userRef.update({ currentRoom: roomName });
+  userRef.update({ [property]: value });
 };
 
-module.exports.getUserRoom = async chatID => {
+module.exports.getUserProp = async (chatID, property) => {
   const userRef = db.collection("users").doc(String(chatID));
   try {
     const doc = await userRef.get();
     const userData = doc.data();
-    return userData.currentRoom;
+    return userData[property];
   } catch (error) {
     console.error(error);
   }
 };
 
+module.exports.getUsers = async () => {
+  const usersRef = db.collection("users");
+  try {
+    let output = [];
+    const users = await usersRef.get();
+    users.forEach(doc => {
+      output.push(doc.data());
+    });
+    return output;
+  } catch (error) {
+    console.error(error);
+  }
+};
+
+module.exports.listenRoomAvail = async (
+  roomName,
+  sendMessage,
+  respondRoomStatus
+) => {
+  const roomRef = db
+    .collection("rooms")
+    .doc("rooms")
+    .collection(roomName);
+
+  roomRef.onSnapshot(room => {
+    let firstCheck = true;
+    room.forEach(doc => {
+      machine = doc.data();
+      if (machine.status === "available" && firstCheck) {
+        firstCheck = false;
+        this.updateRoomAvail(
+          roomName,
+          machine.name,
+          sendMessage,
+          respondRoomStatus
+        );
+      }
+    });
+  });
+};
+
+module.exports.updateRoomAvail = async (
+  roomName,
+  machineName,
+  sendMessage,
+  respondRoomStatus
+) => {
+  try {
+    const users = await this.getUsers();
+    users.forEach(user => {
+      if (user.waitingAvail === roomName) {
+        sendMessage(user.chatID, `${machineName} is available!`);
+        respondRoomStatus(user.chatID, roomName);
+      }
+    });
+  } catch (error) {
+    console.error(error);
+  }
+};
+
+// convert an array into a square array.
 const arr2SqArr = arr => {
   const rows = Math.floor(Math.sqrt(arr.length));
   const cols = Math.ceil(arr.length / rows);

@@ -82,6 +82,7 @@ const sendMessage = async (
   }
 };
 
+// Respond with the status of the machines in the room
 const respondRoomStatus = async (chatID, roomName) => {
   const status = await fire.getRoomStatus(roomName);
   let outString = `*${roomName} machines*\n\n`;
@@ -89,12 +90,17 @@ const respondRoomStatus = async (chatID, roomName) => {
     outString += `${machine.name}: ${machine.status}\n`;
   });
   const keyboard = {
-    keyboard: [["Refresh"]],
+    keyboard: [
+      ["Refresh"],
+      ["Notify me when a machine is available"],
+      ["Notify me when my wash is done"]
+    ],
     one_time_keyboard: true
   };
   sendMessage(chatID, outString, keyboard, "Markdown");
 };
 
+// Respond to /start
 const respondStart = async chatID => {
   fire.setNewUser(chatID);
   const keyboard = {
@@ -108,20 +114,43 @@ const respondStart = async chatID => {
   );
 };
 
+// Respond to Refresh
 const respondRefresh = async chatID => {
-  const roomName = await fire.getUserRoom(chatID);
+  const roomName = await fire.getUserProp(chatID, "currentRoom");
   respondRoomStatus(chatID, roomName);
 };
 
+const respondNotifyAvailable = async chatID => {
+  const roomName = await fire.getUserProp(chatID, "currentRoom");
+  const status = await fire.getRoomStatus(roomName);
+  let availCheck = false;
+  status.forEach(machine => {
+    machine.status === "available" && (availCheck = true);
+  });
+  if (availCheck) {
+    sendMessage(chatID, "There is already a machine available!");
+    respondRoomStatus(chatID, roomName);
+  } else {
+    sendMessage(
+      chatID,
+      "We will notify you when there is a machine available!"
+    );
+    fire.setUserProp(chatID, "waitingAvail", roomName);
+  }
+};
+
+// Overall response
 const respond = async (chatID, messageText) => {
   if (messageText === "/start") {
     respondStart(chatID);
   } else if (messageText === "Refresh") {
     respondRefresh(chatID);
+  } else if (messageText === "Notify me when a machine is available") {
+    respondNotifyAvailable(chatID);
   } else {
     const roomNames = await fire.getRoomNames();
     if (roomNames.includes(messageText)) {
-      fire.setUserRoom(chatID, messageText);
+      fire.setUserProp(chatID, "currentRoom", messageText);
       respondRoomStatus(chatID, messageText);
     } else {
       sendMessage(chatID, `Unknown command ${messageText} received by bot`);
@@ -130,13 +159,16 @@ const respond = async (chatID, messageText) => {
 };
 
 const test = async () => {
-  fire.setNewUser("test");
+  console.log(await fire.getUserProp(244295884, "currentRoom"));
 };
 
 const run = async () => {
+  fire.listenRoomAvail("fakeroom1", sendMessage, respondRoomStatus);
+  fire.listenRoomAvail("fakeroom2", sendMessage, respondRoomStatus);
   while (true) {
     await getUpdates();
   }
 };
 
 run();
+// test();
